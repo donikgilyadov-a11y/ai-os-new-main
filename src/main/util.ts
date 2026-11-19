@@ -62,3 +62,13 @@ export function truncate(value: string, max = 180): string {
   const flat = value.replace(/\s+/g, ' ').trim()
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat
 }
+
+/** Only hand web links to the operating system's default browser. */
+export function isSafeExternalUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:'
+  } catch {
+    return false
+  }
+}

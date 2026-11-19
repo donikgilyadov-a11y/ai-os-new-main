@@ -133,7 +133,7 @@ export const useStore = create<Store>((set, get) => ({
   init: async () => {
     const api = window.gridpost
     const [state, platforms, update] = await Promise.all([api.getState(), api.platforms(), api.updateState()])
-    const s = state as AppState & { encrypted: boolean }
+    const s = state as AppState & { encrypted: boolean; missed?: { id: string; scheduledAt?: number }[] }
     const selected = s.accounts.slice(0, 6).map((a) => a.id)
     set({
       ready: true,
@@ -142,6 +142,7 @@ export const useStore = create<Store>((set, get) => ({
       encrypted: Boolean(s.encrypted),
       selected,
       update: update as UpdateState,
+      missed: s.missed?.length ? { records: s.missed } : null,
       tab: (s.settings.activeTab as TabId) || 'compose'
     })
     api.onState((next) => {
@@ -408,27 +409,24 @@ export const useStore = create<Store>((set, get) => ({
     }
     const mediaIds = new Set<string>()
     Object.values(variants).forEach((thread) => thread.forEach((p) => p.mediaIds.forEach((id) => mediaIds.add(id))))
-    const limited = Object.entries(variants).flatMap(([lang, thread]) => {
+    for (const [lang, thread] of Object.entries(variants)) {
       const accountsOfLang = accounts.filter((a) => a.lang.toUpperCase() === lang)
       const limit = strictestLimit(accountsOfLang, get().platforms)
-      let used = 0
-      const kept: ThreadPost[] = []
-      for (const post of thread) {
-        if (used + post.text.length > limit) break
-        kept.push(post)
-        used += post.text.length
+      if (thread.some((post) => post.text.length > limit)) {
+        get().toast(`Вариант ${lang}: одно из сообщений превышает лимит ${limit} символов`, 'error')
+        return
       }
-      return kept.length ? [[lang, kept] as const] : []
-    })
-    if (!limited.length) {
-      get().toast('Текст превышает лимиты выбранных площадок', 'error')
+    }
+    const targetAccounts = accounts.filter((account) => variants[account.lang.toUpperCase()])
+    if (!targetAccounts.length) {
+      get().toast('Нет аккаунтов с заполненным вариантом публикации', 'error')
       return
     }
     set({ publishing: true })
     try {
       await window.gridpost.createPost({
-        accountIds: accounts.map((a) => a.id),
-        variants: Object.fromEntries(limited),
+        accountIds: targetAccounts.map((a) => a.id),
+        variants,
         mediaIds: [...mediaIds],
         scheduledAt: composer.scheduleAt ?? undefined
       })

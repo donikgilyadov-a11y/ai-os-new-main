@@ -79,6 +79,15 @@ export class Store {
       }
     } catch (error) {
       console.error('[store] failed to load, starting fresh', error)
+      if (existsSync(this.file)) {
+        const backup = `${this.file}.corrupt-${Date.now()}`
+        try {
+          copyFileSync(this.file, backup)
+          console.error(`[store] unreadable data preserved at ${backup}`)
+        } catch (backupError) {
+          console.error('[store] failed to preserve unreadable data', backupError)
+        }
+      }
       this.state = defaultState()
     }
     return this.state

@@ -30,6 +30,7 @@ const adapter: Adapter = {
     threads: true,
     nativeScheduling: true
   },
+  supportsNativeScheduling: (thread) => thread.length === 1,
   credentialFields: [
     { key: 'host', label: 'Instance host', placeholder: 'mastodon.social', required: true },
     { key: 'accessToken', label: 'Access token', placeholder: 'токен приложения', secret: true, required: true, hint: 'Preferences → Development → New application' }

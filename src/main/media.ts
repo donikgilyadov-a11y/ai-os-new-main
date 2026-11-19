@@ -123,8 +123,10 @@ export function prepareAsset(item: MediaItem, caps: Capabilities): MediaAsset {
 }
 
 export function prepareThreadMedia(items: MediaItem[], caps: Capabilities): MediaAsset[] {
-  const limited = items.slice(0, caps.media.maxCount)
+  if (items.length > caps.media.maxCount) {
+    throw new Error(`Слишком много медиа: выбрано ${items.length}, максимум для этой платформы — ${caps.media.maxCount}`)
+  }
   const assets: MediaAsset[] = []
-  for (const item of limited) assets.push(prepareAsset(item, caps))
+  for (const item of items) assets.push(prepareAsset(item, caps))
   return assets
 }

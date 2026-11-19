@@ -1,11 +1,12 @@
 import { app, BrowserWindow, globalShortcut, Menu, nativeImage, Notification, safeStorage, session, shell, Tray } from 'electron'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { existsSync, writeFileSync } from 'node:fs'
 import { store } from './store'
 import { registerIpc } from './ipc'
 import { Publisher } from './publisher'
 import { registry } from './adapters'
-import { applyProxy } from './util'
+import { applyProxy, isSafeExternalUrl } from './util'
 import { setupUpdater } from './updater'
 
 let mainWindow: BrowserWindow | null = null
@@ -34,6 +35,8 @@ function appIconPath(): string | undefined {
 }
 
 function createWindow(): BrowserWindow {
+  const rendererEntry = join(__dirname, '../renderer/index.html')
+  const expectedRendererUrl = process.env['ELECTRON_RENDERER_URL'] ?? pathToFileURL(rendererEntry).href
   const win = new BrowserWindow({
     width: 460,
     height: 720,
@@ -53,10 +56,23 @@ function createWindow(): BrowserWindow {
     }
   })
 
+  win.webContents.on('will-navigate', (event, url) => {
+    try {
+      const destination = new URL(url)
+      const expected = new URL(expectedRendererUrl)
+      const trusted = expected.protocol === 'file:'
+        ? destination.protocol === 'file:' && destination.pathname === expected.pathname
+        : destination.origin === expected.origin
+      if (!trusted) event.preventDefault()
+    } catch {
+      event.preventDefault()
+    }
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+    win.loadFile(rendererEntry)
   }
 
   win.once('ready-to-show', () => {
@@ -72,7 +88,7 @@ function createWindow(): BrowserWindow {
   })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
 
@@ -89,11 +105,11 @@ function toggleWindow(): void {
 }
 
 function registerHotkey(accelerator: string): { ok: boolean; message?: string } {
-  if (registeredHotkey) globalShortcut.unregister(registeredHotkey)
-  registeredHotkey = ''
+  if (accelerator === registeredHotkey) return { ok: true }
   try {
     const ok = globalShortcut.register(accelerator, toggleWindow)
     if (ok) {
+      if (registeredHotkey) globalShortcut.unregister(registeredHotkey)
       registeredHotkey = accelerator
       return { ok }
     }

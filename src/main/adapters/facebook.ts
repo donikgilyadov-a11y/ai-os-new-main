@@ -24,6 +24,7 @@ const adapter: Adapter = {
     threads: false,
     nativeScheduling: true
   },
+  supportsNativeScheduling: (thread) => thread.length === 1,
   credentialFields: [
     { key: 'pageId', label: 'Page ID', placeholder: '123456789012345', required: true },
     { key: 'pageAccessToken', label: 'Page access token', placeholder: 'EAAB…', secret: true, required: true, hint: 'Graph API Explorer → Page token' }

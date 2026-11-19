@@ -30,6 +30,7 @@ interface PluginModule {
   authenticate?: Adapter['authenticate']
   publish?: Adapter['publish']
   fetchStats?: Adapter['fetchStats']
+  supportsNativeScheduling?: Adapter['supportsNativeScheduling']
   default?: PluginModule
 }
 
@@ -116,7 +117,8 @@ export class AdapterRegistry {
           sessionCookies: impl.sessionCookies,
           authenticate: impl.authenticate,
           publish: impl.publish,
-          fetchStats: impl.fetchStats
+          fetchStats: impl.fetchStats,
+          supportsNativeScheduling: impl.supportsNativeScheduling
         }
         info.platform = adapter.id
         info.capabilities = adapter.capabilities

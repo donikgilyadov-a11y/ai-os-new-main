@@ -8,6 +8,8 @@ type Emit = (event: 'records' | 'notice', payload: unknown) => void
 export class Publisher {
   private timer: NodeJS.Timeout | undefined
   private running = false
+  private readonly activeRecords = new Set<string>()
+  private readonly notifiedMissed = new Set<string>()
   private getState: () => AppState
   private save: () => void
   private emit: Emit
@@ -21,6 +23,7 @@ export class Publisher {
   }
 
   start(): void {
+    this.recoverInterrupted()
     this.checkMissed()
     this.timer = setInterval(() => void this.tick(), 10_000)
     void this.tick()
@@ -31,15 +34,9 @@ export class Publisher {
   }
 
   private checkMissed(): void {
-    const now = Date.now()
-    const missed = this.getState().records.filter(
-      (r) =>
-        !r.ackMissed &&
-        r.scheduledAt &&
-        r.scheduledAt < now - 60_000 &&
-        r.results.some((x) => x.status === 'pending')
-    )
+    const missed = this.missedRecords().filter((record) => !this.notifiedMissed.has(record.id))
     if (missed.length) {
+      for (const record of missed) this.notifiedMissed.add(record.id)
       this.emit('notice', {
         kind: 'missed',
         message: `Пропущено запланированных публикаций: ${missed.length}`,
@@ -48,11 +45,29 @@ export class Publisher {
     }
   }
 
+  missedRecords(): { id: string; scheduledAt?: number }[] {
+    const now = Date.now()
+    return this.getState().records
+      .filter(
+        (record) =>
+          !record.ackMissed &&
+          record.scheduledAt &&
+          record.scheduledAt < now - 60_000 &&
+          record.results.some((result) => result.status === 'pending')
+      )
+      .map((record) => ({ id: record.id, scheduledAt: record.scheduledAt }))
+  }
+
   async tick(): Promise<void> {
     if (this.running) return
     const now = Date.now()
+    this.checkMissed()
     const due = this.getState().records.filter(
-      (r) => r.scheduledAt && r.scheduledAt <= now && r.results.some((x) => x.status === 'pending')
+      (r) =>
+        r.scheduledAt &&
+        r.scheduledAt <= now &&
+        (r.ackMissed || r.scheduledAt >= now - 60_000) &&
+        r.results.some((x) => x.status === 'pending')
     )
     if (!due.length) return
     this.running = true
@@ -62,6 +77,23 @@ export class Publisher {
       }
     } finally {
       this.running = false
+    }
+  }
+
+  private recoverInterrupted(): void {
+    let recovered = false
+    for (const record of this.getState().records) {
+      for (const result of record.results) {
+        if (result.status !== 'sending') continue
+        result.status = 'error'
+        result.error = 'Приложение было закрыто во время отправки. Проверьте публикацию на платформе перед повтором.'
+        result.at = Date.now()
+        recovered = true
+      }
+    }
+    if (recovered) {
+      this.save()
+      this.emit('records', this.getState().records)
     }
   }
 
@@ -95,6 +127,7 @@ export class Publisher {
   }
 
   async publishNow(record: PostRecord): Promise<PostRecord> {
+    if (this.activeRecords.has(record.id)) throw new Error('Публикация этого задания уже выполняется')
     await this.publishRecord(record)
     return record
   }
@@ -110,7 +143,11 @@ export class Publisher {
     const native = record.results.filter((result) => {
       if (result.status !== 'pending') return false
       const account = state.accounts.find((a) => a.id === result.accountId)
-      return Boolean(account && registry.get(account.platform)?.capabilities.nativeScheduling)
+      if (!account) return false
+      const adapter = registry.get(account.platform)
+      if (!adapter?.capabilities.nativeScheduling) return false
+      const thread = this.resolveThread(record, account)
+      return adapter.supportsNativeScheduling?.(thread) ?? true
     })
     if (native.length) await this.publishRecord(record, native)
     return record
@@ -119,18 +156,27 @@ export class Publisher {
   async retryFailed(recordId: string): Promise<PostRecord | undefined> {
     const record = this.getState().records.find((r) => r.id === recordId)
     if (!record) return undefined
+    if (this.activeRecords.has(recordId)) throw new Error('Публикация этого задания ещё выполняется')
+    const failedAccounts = new Set(record.results.filter((r) => r.status === 'error').map((r) => r.accountId))
     record.results = record.results.map((r) => (r.status === 'error' ? { ...r, status: 'pending', error: undefined } : r))
     this.save()
-    await this.publishRecord(record)
+    await this.publishRecord(record, record.results.filter((r) => failedAccounts.has(r.accountId)))
     return record
+  }
+
+  isPublishing(recordId: string): boolean {
+    return this.activeRecords.has(recordId)
   }
 
   /** Publish only results that are still pending. */
   private async publishRecord(record: PostRecord, only?: PostResult[]): Promise<void> {
+    if (this.activeRecords.has(record.id)) return
     const state = this.getState()
     const queue = (only ?? record.results).filter((r) => r.status === 'pending')
     if (!queue.length) return
 
+    this.activeRecords.add(record.id)
+    try {
     const touchedPlatforms = new Map<string, number>()
     for (const result of queue) {
       const account = state.accounts.find((a) => a.id === result.accountId)
@@ -180,7 +226,7 @@ export class Publisher {
             thread: usableThread,
             media: record.media,
             mediaByPost: prepared,
-            scheduledAt: record.scheduledAt
+            scheduledAt: record.scheduledAt && record.scheduledAt > Date.now() ? record.scheduledAt : undefined
           },
           {
             fetch: scopedFetch(account.partition),
@@ -204,6 +250,9 @@ export class Publisher {
     }
     this.save()
     this.emit('records', state.records)
+    } finally {
+      this.activeRecords.delete(record.id)
+    }
   }
 
   private resolveThread(record: PostRecord, account: Account): ThreadPost[] {

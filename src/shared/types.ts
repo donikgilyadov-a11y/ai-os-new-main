@@ -200,6 +200,8 @@ export interface Adapter {
   authenticate?(credentials: Record<string, string>, ctx: AdapterContext): Promise<{ ok: boolean; message?: string }>
   publish(input: PublishInput, ctx: AdapterContext): Promise<PublishOutcome>
   fetchStats?(account: Account, remoteId: string, ctx: AdapterContext): Promise<{ likes?: number; views?: number; replies?: number }>
+  /** Return false when this particular post shape cannot be scheduled natively. */
+  supportsNativeScheduling?(thread: ThreadPost[]): boolean
 }
 
 export interface CredentialField {

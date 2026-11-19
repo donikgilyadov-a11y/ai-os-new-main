@@ -13,7 +13,7 @@ import type {
   ThreadPost,
   TranslateRequest
 } from '@shared/types'
-import { accountSession, applyProxy, newId, scopedFetch } from './util'
+import { accountSession, applyProxy, isSafeExternalUrl, newId, scopedFetch } from './util'
 import { store } from './store'
 import { registry } from './adapters'
 import { importMediaFile } from './media'
@@ -53,7 +53,7 @@ export function registerIpc(deps: Deps): void {
     deps.getWindow()?.webContents.send('toast', text)
   }
 
-  ipcMain.handle('state:get', () => withPlugins())
+  ipcMain.handle('state:get', () => ({ ...withPlugins(), missed: deps.publisher.missedRecords() }))
 
   ipcMain.handle('state:refresh', () => {
     deps.resendState()
@@ -62,14 +62,18 @@ export function registerIpc(deps: Deps): void {
 
   ipcMain.handle('settings:update', (_event, patch: Partial<Settings>) => {
     const settings = state().settings
+    const previousHotkey = settings.hotkey
     if (patch.ai) patch.ai = { ...settings.ai, ...patch.ai }
     state().settings = { ...settings, ...patch }
-    store.save()
     deps.getWindow()?.setAlwaysOnTop(state().settings.pin)
-    if (patch.hotkey) {
+    if (patch.hotkey && patch.hotkey !== previousHotkey) {
       const result = deps.registerHotkey(state().settings.hotkey)
-      if (!result.ok) notify(`Горячая клавиша не зарегистрирована: ${result.message ?? ''}`)
+      if (!result.ok) {
+        state().settings.hotkey = previousHotkey
+        notify(`Горячая клавиша не зарегистрирована: ${result.message ?? ''}`)
+      }
     }
+    store.save()
     deps.resendState()
     return withPlugins()
   })
@@ -292,6 +296,7 @@ export function registerIpc(deps: Deps): void {
   ipcMain.handle('post:ack', async (_event, id: string, action: 'now' | 'reschedule' | 'draft', scheduledAt?: number) => {
     const record = state().records.find((r) => r.id === id)
     if (!record) return null
+    if (deps.publisher.isPublishing(id)) throw new Error('Публикация этого задания уже выполняется')
     record.ackMissed = true
     if (action === 'now') {
       record.scheduledAt = undefined
@@ -527,7 +532,10 @@ export function registerIpc(deps: Deps): void {
     deps.resendState()
     return pin
   })
-  ipcMain.handle('window:openExternal', (_event, url: string) => shell.openExternal(url))
+  ipcMain.handle('window:openExternal', (_event, url: string) => {
+    if (typeof url !== 'string' || !isSafeExternalUrl(url)) throw new Error('Разрешены только ссылки HTTP и HTTPS')
+    return shell.openExternal(url)
+  })
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(),
     platform: process.platform,
