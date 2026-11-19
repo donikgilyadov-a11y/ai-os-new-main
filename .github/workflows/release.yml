@@ -20,8 +20,9 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      # Windows runners may lack symlink privileges for the winCodeSign cache.
       - name: Build installer
-        run: npx electron-builder --win --publish never
+        run: npx electron-builder --win --publish never -c.win.signAndEditExecutable=false
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
