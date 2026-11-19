@@ -1,0 +1,9 @@
+﻿{
+  "id": "webhook",
+  "name": "Webhook / Discord",
+  "version": "1.0.0",
+  "description": "Публикует текст в любой HTTP webhook (Discord, Slack, собственный бот). Пример плагина Gridpost.",
+  "platform": "webhook",
+  "main": "adapter.mjs",
+  "color": "#8b93a7"
+}
