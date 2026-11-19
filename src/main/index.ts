@@ -6,6 +6,7 @@ import { registerIpc } from './ipc'
 import { Publisher } from './publisher'
 import { registry } from './adapters'
 import { applyProxy } from './util'
+import { setupUpdater } from './updater'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -169,6 +170,14 @@ async function bootstrap(): Promise<void> {
     registerHotkey,
     resendState: () => mainWindow?.webContents.send('state:changed', publicState())
   })
+
+  setupUpdater(
+    () => mainWindow,
+    (message) => {
+      console.log('[updater]', message)
+      mainWindow?.webContents.send('log', message)
+    }
+  )
 
   registerHotkey(store.state.settings.hotkey)
   buildTray()

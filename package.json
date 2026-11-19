@@ -1,6 +1,6 @@
 {
   "name": "gridpost",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Gridpost — local-first lightweight desktop client for running a multi-language social grid",
   "main": "./out/main/index.js",
   "author": "Gridpost contributors",
@@ -17,6 +17,7 @@
     "dist": "npm run build && electron-builder --win --publish never"
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "smol-toml": "^1.3.1"
   },
   "devDependencies": {
@@ -38,6 +39,11 @@
   "build": {
     "appId": "app.gridpost.desktop",
     "productName": "Gridpost",
+    "publish": {
+      "provider": "github",
+      "owner": "donikgilyadov-a11y",
+      "repo": "ai-os-new-main"
+    },
     "files": [
       "out/**/*",
       "plugins/**/*",

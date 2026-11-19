@@ -7,7 +7,8 @@ import type {
   Draft,
   MediaItem,
   PostRecord,
-  ThreadPost
+  ThreadPost,
+  UpdateState
 } from '@shared/types'
 
 export interface PlatformInfo {
@@ -60,6 +61,7 @@ interface Store {
   toasts: ToastItem[]
   publishing: boolean
   logs: string[]
+  update: UpdateState | null
 
   init: () => Promise<void>
   setTab: (tab: TabId) => void
@@ -95,6 +97,9 @@ interface Store {
   closeWizard: () => void
   setMissed: (payload: Store['missed']) => void
   clearLogs: () => void
+  checkUpdate: () => Promise<void>
+  downloadUpdate: () => Promise<void>
+  installUpdate: () => Promise<void>
 }
 
 let toastSeq = 0
@@ -123,10 +128,11 @@ export const useStore = create<Store>((set, get) => ({
   toasts: [],
   publishing: false,
   logs: [],
+  update: null,
 
   init: async () => {
     const api = window.gridpost
-    const [state, platforms] = await Promise.all([api.getState(), api.platforms()])
+    const [state, platforms, update] = await Promise.all([api.getState(), api.platforms(), api.updateState()])
     const s = state as AppState & { encrypted: boolean }
     const selected = s.accounts.slice(0, 6).map((a) => a.id)
     set({
@@ -135,6 +141,7 @@ export const useStore = create<Store>((set, get) => ({
       platforms: platforms as PlatformInfo[],
       encrypted: Boolean(s.encrypted),
       selected,
+      update: update as UpdateState,
       tab: (s.settings.activeTab as TabId) || 'compose'
     })
     api.onState((next) => {
@@ -155,6 +162,7 @@ export const useStore = create<Store>((set, get) => ({
     })
     api.onToast((text) => get().toast(text))
     api.onLog((line) => set((prev) => ({ logs: [line, ...prev.logs].slice(0, 200) })))
+    api.onUpdate((next) => set({ update: next as UpdateState }))
   },
 
   setTab: (tab) => {
@@ -455,7 +463,28 @@ export const useStore = create<Store>((set, get) => ({
   openWizard: (id = null) => set({ wizard: { open: true, editId: id } }),
   closeWizard: () => set({ wizard: { open: false, editId: null } }),
   setMissed: (payload) => set({ missed: payload }),
-  clearLogs: () => set({ logs: [] })
+  clearLogs: () => set({ logs: [] }),
+
+  checkUpdate: async () => {
+    set({ update: { status: 'checking' } })
+    try {
+      set({ update: (await window.gridpost.checkUpdate()) as UpdateState })
+    } catch (error) {
+      set({ update: { status: 'error', error: (error as Error).message } })
+    }
+  },
+
+  downloadUpdate: async () => {
+    try {
+      set({ update: (await window.gridpost.downloadUpdate()) as UpdateState })
+    } catch (error) {
+      set({ update: { status: 'error', error: (error as Error).message } })
+    }
+  },
+
+  installUpdate: async () => {
+    await window.gridpost.installUpdate()
+  }
 }))
 
 function scheduleDraftSave(): void {

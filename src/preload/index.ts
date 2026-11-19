@@ -54,6 +54,10 @@ const api = {
   openExternal: (url: string) => invoke('window:openExternal', url),
   appInfo: () => invoke('app:info'),
   logs: () => invoke('logs:get'),
+  updateState: () => invoke('update:state'),
+  checkUpdate: () => invoke('update:check'),
+  downloadUpdate: () => invoke('update:download'),
+  installUpdate: () => invoke('update:install'),
   probe: (url: string) => invoke('http:probe', url),
 
   onState: (cb: (state: unknown) => void) => {
@@ -80,6 +84,11 @@ const api = {
     const listener = (_e: unknown, line: string) => cb(line)
     ipcRenderer.on('log', listener)
     return () => ipcRenderer.removeListener('log', listener)
+  },
+  onUpdate: (cb: (state: unknown) => void) => {
+    const listener = (_e: unknown, state: unknown) => cb(state)
+    ipcRenderer.on('update:state', listener)
+    return () => ipcRenderer.removeListener('update:state', listener)
   }
 }
 

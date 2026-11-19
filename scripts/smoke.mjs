@@ -50,6 +50,10 @@ async function run() {
   }
   log('plugins discovered', platforms.map((p) => p.id).join(', '))
 
+  const updater = await page.evaluate(() => window.gridpost.updateState())
+  if (updater?.status !== 'dev') throw new Error(`updater should be disabled in dev, got ${updater?.status}`)
+  log('updater dev-mode guard')
+
   await page.getByRole('button', { name: 'Добавить аккаунт' }).click()
   await page.waitForSelector('.modal')
   await page.locator('.platform-tile', { hasText: 'Telegram' }).click()
@@ -115,6 +119,8 @@ async function run() {
 
   await page.getByRole('button', { name: 'Настройки' }).click()
   await page.waitForSelector('.account-row')
+  const settingsText = await page.textContent('body')
+  if (!settingsText?.includes('Обновления')) throw new Error('updates section missing')
   await shot(page, '04-settings.png')
   log('settings tab rendered')
 

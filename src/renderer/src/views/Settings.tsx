@@ -35,6 +35,7 @@ export default function Settings(): JSX.Element {
       <AiSection />
       <WindowSection settings={settings} update={update} />
       <PluginsSection />
+      <UpdateSection />
       <DataSection />
       {!data.accounts.length && (
         <div className="empty" style={{ padding: 16 }}>
@@ -398,6 +399,63 @@ function PluginsSection(): JSX.Element {
           }}
         >
           <FolderOpen size={10} /> папка
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function UpdateSection(): JSX.Element {
+  const update = useStore((s) => s.update)
+  const check = useStore((s) => s.checkUpdate)
+  const download = useStore((s) => s.downloadUpdate)
+  const install = useStore((s) => s.installUpdate)
+  const [current, setCurrent] = useState('…')
+
+  useEffect(() => {
+    void window.gridpost.appInfo().then((info) => setCurrent((info as { version: string }).version))
+  }, [])
+
+  const status = update?.status ?? 'idle'
+  const label: Record<string, string> = {
+    idle: 'проверка не выполнялась',
+    checking: 'проверка обновлений…',
+    available: `доступна версия ${update?.version ?? ''}`,
+    'not-available': 'установлена последняя версия',
+    downloading: `загрузка… ${update?.progress ?? 0}%`,
+    downloaded: `загружена версия ${update?.version ?? ''} — перезапустите для установки`,
+    error: `ошибка: ${update?.error ?? ''}`,
+    dev: 'в режиме разработки проверка недоступна'
+  }
+
+  return (
+    <div className="card-block">
+      <h3>
+        <RefreshCw size={11} style={{ verticalAlign: '-1px' }} /> Обновления
+      </h3>
+      <div className="dim" style={{ fontSize: 10.5 }}>
+        Текущая версия: <span className="mono">{current}</span>
+      </div>
+      <div className="dim" style={{ fontSize: 10.5, marginTop: 4 }}>
+        {label[status] ?? status}
+      </div>
+      {status === 'downloading' && (
+        <div className="update-bar">
+          <div style={{ width: `${update?.progress ?? 0}%` }} />
+        </div>
+      )}
+      <div className="row" style={{ marginTop: 8 }}>
+        {status === 'downloaded' ? (
+          <button className="mini-btn" onClick={() => void install()}>
+            перезапустить и установить
+          </button>
+        ) : status === 'available' ? (
+          <button className="mini-btn" onClick={() => void download()}>
+            скачать обновление
+          </button>
+        ) : null}
+        <button className="mini-btn" onClick={() => void check()} disabled={status === 'checking' || status === 'downloading'}>
+          <RefreshCw size={10} className={status === 'checking' ? 'spin' : ''} /> проверить
         </button>
       </div>
     </div>

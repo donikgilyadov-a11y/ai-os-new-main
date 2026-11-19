@@ -20,6 +20,7 @@ import { importMediaFile } from './media'
 import { captureSession } from './session-login'
 import { encryptString, decryptString, isEncrypted } from './crypto'
 import { buildHistoryCsv } from './history-csv'
+import { updateState, check as checkUpdate, download as downloadUpdate, install as installUpdate } from './updater'
 import { translateText, checkProvider } from './ai'
 import type { Publisher } from './publisher'
 
@@ -534,6 +535,10 @@ export function registerIpc(deps: Deps): void {
     encrypted: safeStorage.isEncryptionAvailable(),
     storePath: store.path
   }))
+  ipcMain.handle('update:state', () => updateState())
+  ipcMain.handle('update:check', () => checkUpdate())
+  ipcMain.handle('update:download', () => downloadUpdate())
+  ipcMain.handle('update:install', () => installUpdate())
   ipcMain.handle('logs:get', () => logs)
 
   ipcMain.handle('http:probe', async (_event, url: string) => {

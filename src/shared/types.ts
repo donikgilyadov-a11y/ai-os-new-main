@@ -216,3 +216,20 @@ export interface TranslateRequest {
   targetLangs: string[]
   platform?: string
 }
+
+export type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+  | 'dev'
+
+export interface UpdateState {
+  status: UpdateStatus
+  version?: string
+  progress?: number
+  error?: string
+}
