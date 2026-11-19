@@ -409,6 +409,7 @@ function DataSection(): JSX.Element {
   const logs = useStore((s) => s.logs)
   const toast = useStore((s) => s.toast)
   const [info, setInfo] = useState<{ storePath: string; userData: string } | null>(null)
+  const [backupPassword, setBackupPassword] = useState('')
 
   useEffect(() => {
     void window.gridpost.appInfo().then((i) => setInfo(i as { storePath: string; userData: string }))
@@ -416,8 +417,8 @@ function DataSection(): JSX.Element {
 
   const exportPresets = async (): Promise<void> => {
     try {
-      const path = (await window.gridpost.exportPresets()) as string | null
-      if (path) toast('Пресеты экспортированы')
+      const path = (await window.gridpost.exportPresets(backupPassword || undefined)) as string | null
+      if (path) toast(backupPassword ? 'Пресеты экспортированы и зашифрованы' : 'Пресеты экспортированы')
     } catch (error) {
       toast((error as Error).message, 'error')
     }
@@ -425,7 +426,7 @@ function DataSection(): JSX.Element {
 
   const importPresets = async (): Promise<void> => {
     try {
-      const result = (await window.gridpost.importPresets()) as { aliases: number; groups: number } | null
+      const result = (await window.gridpost.importPresets(backupPassword || undefined)) as { aliases: number; groups: number } | null
       if (result) toast(`Импортировано: ${result.aliases} алиасов, ${result.groups} пресетов`)
     } catch (error) {
       toast((error as Error).message, 'error')
@@ -444,6 +445,16 @@ function DataSection(): JSX.Element {
       <div className="mono dim" style={{ fontSize: 9, marginTop: 6, wordBreak: 'break-all' }}>
         {info?.storePath}
       </div>
+      <div className="field" style={{ marginTop: 8 }}>
+        <label>Пароль бэкапа (AES-256-GCM)</label>
+        <input
+          type="password"
+          value={backupPassword}
+          placeholder="необязательно — без пароля будет обычный JSON"
+          autoComplete="new-password"
+          onChange={(e) => setBackupPassword(e.target.value)}
+        />
+      </div>
       <div className="row" style={{ marginTop: 8 }}>
         <button className="mini-btn" onClick={() => void exportPresets()}>
           экспорт пресетов
@@ -453,7 +464,8 @@ function DataSection(): JSX.Element {
         </button>
       </div>
       <div className="hint" style={{ marginTop: 6 }}>
-        Экспорт содержит алиасы, пресеты, профили (без токенов) и настройки — удобно переносить между устройствами.
+        Экспорт содержит алиасы, пресеты, профили (без токенов) и настройки. С паролем файл шифруется (scrypt +
+        AES-256-GCM) — тот же пароль понадобится при импорте. Пароль никуда не сохраняется.
       </div>
       {logs.length > 0 && (
         <>

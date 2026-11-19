@@ -42,8 +42,8 @@ const api = {
   removeGroup: (id: string) => invoke('groups:remove', id),
   saveAlias: (alias: unknown) => invoke('aliases:save', alias),
   removeAlias: (id: string) => invoke('aliases:remove', id),
-  exportPresets: () => invoke('presets:export'),
-  importPresets: () => invoke('presets:import'),
+  exportPresets: (password?: string) => invoke('presets:export', password),
+  importPresets: (password?: string) => invoke('presets:import', password),
 
   fetchStats: (recordId: string, accountId: string) => invoke('stats:fetch', recordId, accountId),
 

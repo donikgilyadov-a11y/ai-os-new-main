@@ -18,6 +18,7 @@ import { store } from './store'
 import { registry } from './adapters'
 import { importMediaFile } from './media'
 import { captureSession } from './session-login'
+import { encryptString, decryptString, isEncrypted } from './crypto'
 import { translateText, checkProvider } from './ai'
 import type { Publisher } from './publisher'
 
@@ -370,7 +371,7 @@ export function registerIpc(deps: Deps): void {
     return true
   })
 
-  ipcMain.handle('presets:export', async () => {
+  ipcMain.handle('presets:export', async (_event, password?: string) => {
     const win = deps.getWindow()
     if (!win) return null
     const result = await dialog.showSaveDialog(win, {
@@ -404,12 +405,13 @@ export function registerIpc(deps: Deps): void {
         ai: { ...state().settings.ai, apiKey: '' }
       }
     }
-    writeFileSync(result.filePath, JSON.stringify(payload, null, 2), 'utf8')
-    log(`presets exported to ${result.filePath}`)
+    const json = JSON.stringify(payload, null, 2)
+    writeFileSync(result.filePath, password ? encryptString(json, password) : json, 'utf8')
+    log(`presets exported to ${result.filePath}${password ? ' (encrypted)' : ''}`)
     return result.filePath
   })
 
-  ipcMain.handle('presets:import', async () => {
+  ipcMain.handle('presets:import', async (_event, password?: string) => {
     const win = deps.getWindow()
     if (!win) return null
     const result = await dialog.showOpenDialog(win, {
@@ -418,7 +420,9 @@ export function registerIpc(deps: Deps): void {
       filters: [{ name: 'JSON', extensions: ['json'] }]
     })
     if (result.canceled || !result.filePaths.length) return null
-    const payload = JSON.parse(readFileSync(result.filePaths[0], 'utf8')) as Record<string, any>
+    const raw = readFileSync(result.filePaths[0], 'utf8')
+    if (isEncrypted(raw) && !password) throw new Error('Файл зашифрован — введите пароль в настройках')
+    const payload = JSON.parse(decryptString(raw, password ?? '')) as Record<string, any>
     if (payload.app && payload.app !== 'gridpost') throw new Error('Это не файл пресетов Gridpost')
 
     let aliases = 0
