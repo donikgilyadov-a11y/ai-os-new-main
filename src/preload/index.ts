@@ -27,6 +27,7 @@ const api = {
   createPost: (payload: unknown) => invoke('post:create', payload),
   retryPost: (id: string) => invoke('post:retry', id),
   deletePost: (id: string) => invoke('post:delete', id),
+  exportHistory: (ids?: string[]) => invoke('history:export', ids),
   ackPost: (id: string, action: string, scheduledAt?: number) => invoke('post:ack', id, action, scheduledAt),
 
   translate: (request: unknown) => invoke('ai:translate', request),

@@ -19,6 +19,7 @@ import { registry } from './adapters'
 import { importMediaFile } from './media'
 import { captureSession } from './session-login'
 import { encryptString, decryptString, isEncrypted } from './crypto'
+import { buildHistoryCsv } from './history-csv'
 import { translateText, checkProvider } from './ai'
 import type { Publisher } from './publisher'
 
@@ -259,6 +260,25 @@ export function registerIpc(deps: Deps): void {
   ipcMain.handle('post:retry', async (_event, id: string) => {
     const record = await deps.publisher.retryFailed(id)
     return record ?? null
+  })
+
+  ipcMain.handle('history:export', async (_event, ids?: string[]) => {
+    const win = deps.getWindow()
+    if (!win) return null
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Экспорт истории',
+      defaultPath: `gridpost-history-${new Date().toISOString().slice(0, 10)}.csv`,
+      filters: [{ name: 'CSV', extensions: ['csv'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+
+    const wanted = ids ? new Set(ids) : null
+    const records = wanted ? state().records.filter((r) => wanted.has(r.id)) : state().records
+    const csv = buildHistoryCsv(records, state().accounts)
+    writeFileSync(result.filePath, `\uFEFF${csv}`, 'utf8')
+    const rowCount = records.reduce((sum, record) => sum + record.results.length, 0)
+    log(`history exported: ${rowCount} rows to ${result.filePath}`)
+    return rowCount
   })
 
   ipcMain.handle('post:delete', (_event, id: string) => {

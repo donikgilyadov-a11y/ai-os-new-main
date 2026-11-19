@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Archive, ExternalLink, RotateCcw, Search, Trash2, X } from 'lucide-react'
+import { Archive, Download, ExternalLink, RotateCcw, Search, Trash2, X } from 'lucide-react'
 import type { PostRecord, PostResult } from '@shared/types'
 import { useStore } from '../store'
 import { statusColor } from '../components/PreviewCards'
@@ -131,6 +131,21 @@ export default function History(): JSX.Element {
 
       <div className="section-title" style={{ marginTop: 10 }}>
         <Archive size={12} /> Записей: {records.length}
+        <span className="spacer" />
+        <button
+          className="mini-btn"
+          title="Экспортировать текущую выборку в CSV"
+          onClick={async () => {
+            try {
+              const count = await window.gridpost.exportHistory(records.map((r) => r.id))
+              if (typeof count === 'number') toast(`Экспортировано строк: ${count}`)
+            } catch (error) {
+              toast((error as Error).message, 'error')
+            }
+          }}
+        >
+          <Download size={10} /> CSV
+        </button>
       </div>
 
       {!records.length && (
