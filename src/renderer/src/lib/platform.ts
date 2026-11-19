@@ -4,6 +4,7 @@ export const PLATFORM_SHORT: Record<string, string> = {
   facebook: 'FB',
   bluesky: 'BS',
   mastodon: 'MAST',
+  linkedin: 'IN',
   webhook: 'HOOK'
 }
 

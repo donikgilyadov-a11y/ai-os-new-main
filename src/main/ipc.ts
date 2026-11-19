@@ -1,4 +1,5 @@
 import { app, dialog, ipcMain, Notification, safeStorage, shell } from 'electron'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type {
   Account,
@@ -194,6 +195,15 @@ export function registerIpc(deps: Deps): void {
     return true
   })
 
+  ipcMain.handle('media:update', (_event, id: string, patch: Partial<MediaItem>) => {
+    const item = state().media.find((m) => m.id === id)
+    if (!item) return null
+    Object.assign(item, patch, { id: item.id, path: item.path })
+    store.save()
+    deps.resendState()
+    return item
+  })
+
   ipcMain.handle('draft:save', (_event, draft: Draft) => {
     const existing = state().drafts.findIndex((d) => d.id === draft.id)
     const next = { ...draft, updatedAt: Date.now() }
@@ -201,6 +211,7 @@ export function registerIpc(deps: Deps): void {
     else state().drafts.unshift(next)
     state().drafts = state().drafts.slice(0, 50)
     store.save()
+    deps.resendState()
     return next
   })
 
@@ -357,6 +368,111 @@ export function registerIpc(deps: Deps): void {
     store.save()
     deps.resendState()
     return true
+  })
+
+  ipcMain.handle('presets:export', async () => {
+    const win = deps.getWindow()
+    if (!win) return null
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Экспорт пресетов',
+      defaultPath: 'gridpost-presets.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    const payload = {
+      app: 'gridpost',
+      version: app.getVersion(),
+      exportedAt: new Date().toISOString(),
+      aliases: state().aliases,
+      groups: state().groups.map((group) => ({
+        ...group,
+        accountNames: group.accountIds
+          .map((id) => state().accounts.find((a) => a.id === id)?.name)
+          .filter(Boolean)
+      })),
+      profiles: state().accounts.map((account) => ({
+        platform: account.platform,
+        name: account.name,
+        lang: account.lang,
+        color: account.color,
+        method: account.method
+      })),
+      settings: {
+        hotkey: state().settings.hotkey,
+        jitterMinSec: state().settings.jitterMinSec,
+        jitterMaxSec: state().settings.jitterMaxSec,
+        ai: { ...state().settings.ai, apiKey: '' }
+      }
+    }
+    writeFileSync(result.filePath, JSON.stringify(payload, null, 2), 'utf8')
+    log(`presets exported to ${result.filePath}`)
+    return result.filePath
+  })
+
+  ipcMain.handle('presets:import', async () => {
+    const win = deps.getWindow()
+    if (!win) return null
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Импорт пресетов',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    })
+    if (result.canceled || !result.filePaths.length) return null
+    const payload = JSON.parse(readFileSync(result.filePaths[0], 'utf8')) as Record<string, any>
+    if (payload.app && payload.app !== 'gridpost') throw new Error('Это не файл пресетов Gridpost')
+
+    let aliases = 0
+    for (const alias of payload.aliases ?? []) {
+      if (!alias?.token) continue
+      const existing = state().aliases.find((a) => a.token === alias.token)
+      if (existing) {
+        existing.values = { ...existing.values, ...(alias.values ?? {}) }
+      } else {
+        state().aliases.push({
+          id: `alias_${Date.now()}_${aliases}`,
+          token: String(alias.token),
+          values: alias.values ?? {}
+        })
+      }
+      aliases += 1
+    }
+
+    let groups = 0
+    for (const group of payload.groups ?? []) {
+      if (!group?.name) continue
+      const ids: string[] = []
+      for (const accountId of group.accountIds ?? []) {
+        if (state().accounts.some((a) => a.id === accountId)) ids.push(accountId)
+      }
+      for (const name of group.accountNames ?? []) {
+        const match = state().accounts.find((a) => a.name === name)
+        if (match && !ids.includes(match.id)) ids.push(match.id)
+      }
+      const existing = state().groups.find((g) => g.name === group.name)
+      if (existing) existing.accountIds = ids
+      else state().groups.push({ id: `group_${Date.now()}_${groups}`, name: String(group.name), accountIds: ids })
+      groups += 1
+    }
+
+    const importedSettings = payload.settings
+    if (importedSettings) {
+      const settings = state().settings
+      if (typeof importedSettings.hotkey === 'string') settings.hotkey = importedSettings.hotkey
+      if (Number.isFinite(importedSettings.jitterMinSec)) settings.jitterMinSec = importedSettings.jitterMinSec
+      if (Number.isFinite(importedSettings.jitterMaxSec)) settings.jitterMaxSec = importedSettings.jitterMaxSec
+      if (importedSettings.ai) {
+        settings.ai = {
+          ...settings.ai,
+          ...importedSettings.ai,
+          apiKey: settings.ai.apiKey || importedSettings.ai.apiKey || ''
+        }
+      }
+    }
+
+    store.save()
+    deps.resendState()
+    log(`presets imported: ${aliases} aliases, ${groups} groups`)
+    return { aliases, groups }
   })
 
   ipcMain.handle('stats:fetch', async (_event, recordId: string, accountId: string) => {

@@ -49,7 +49,7 @@ async function run() {
   await page.getByPlaceholder('123456:ABC-DEF…').fill('123456:TEST-TOKEN')
   await page.getByPlaceholder('@my_channel или -1001234567890').fill('@gridpost_demo')
   await shot(page, '02-wizard.png')
-  await page.getByRole('button', { name: 'Сохранить' }).click()
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click()
   await page.waitForSelector('.modal', { state: 'detached' })
   await page.waitForTimeout(400)
   const chip = page.locator('.chip', { hasText: 'TG · RU канал' })
@@ -67,6 +67,42 @@ async function run() {
   const counter = await page.locator('.counter').first().textContent()
   if (!counter?.includes('/4096')) throw new Error(`unexpected counter: ${counter}`)
   log('composer + thread + preview', `counter ${counter}`)
+
+  await page.getByTitle('Сохранить черновик').click()
+  await page.waitForTimeout(300)
+  await page.getByTitle('Черновики').click()
+  await page.waitForSelector('.modal')
+  await page.waitForTimeout(300)
+  const draftRecord = page.locator('.record', { hasText: 'тестовый пост' })
+  if (!(await draftRecord.count())) throw new Error('manual draft not saved')
+  await shot(page, '03b-drafts.png')
+  log('drafts panel + manual save')
+  await page.locator('.modal .icon-btn').click()
+  await page.waitForSelector('.modal', { state: 'detached' })
+
+  const accountId = await page.evaluate(async () => (await window.gridpost.getState()).accounts[0].id)
+  await page.evaluate(
+    (id) =>
+      window.gridpost.createPost({
+        accountIds: [id],
+        variants: { RU: [{ id: 'hist1', text: 'Историческая запись для smoke', mediaIds: [] }] },
+        mediaIds: [],
+        scheduledAt: Date.now() + 3_600_000
+      }),
+    accountId
+  )
+  await page.waitForTimeout(300)
+  await page.getByRole('button', { name: 'История' }).click()
+  await page.waitForSelector('.history-search')
+  const historyRecord = page.locator('.record', { hasText: 'Историческая запись для smoke' })
+  if (!(await historyRecord.count())) throw new Error('history record not rendered')
+  await shot(page, '03c-history.png')
+  log('history tab + search + filters')
+  await historyRecord.getByRole('button', { name: 'в композер' }).click()
+  await page.waitForTimeout(300)
+  const repostText = await page.locator('.post-card textarea').first().inputValue()
+  if (!repostText.includes('Историческая запись')) throw new Error('repost did not load into composer')
+  log('history repost → composer')
 
   await page.getByRole('button', { name: 'Настройки' }).click()
   await page.waitForSelector('.account-row')

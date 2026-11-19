@@ -1,4 +1,4 @@
-import { Activity, ListOrdered, PenLine, Settings as SettingsIcon } from 'lucide-react'
+import { Activity, Archive, ListOrdered, PenLine, Settings as SettingsIcon } from 'lucide-react'
 import { useStore, type TabId } from '../store'
 
 export default function TabBar(): JSX.Element {
@@ -13,6 +13,7 @@ export default function TabBar(): JSX.Element {
   const tabs: { id: TabId; label: string; icon: JSX.Element; badge?: number; err?: boolean }[] = [
     { id: 'compose', label: 'Пост', icon: <PenLine size={17} /> },
     { id: 'queue', label: 'Очередь', icon: <ListOrdered size={17} />, badge: pending || errors, err: !pending && Boolean(errors) },
+    { id: 'history', label: 'История', icon: <Archive size={17} /> },
     { id: 'pulse', label: 'Пульс', icon: <Activity size={17} /> },
     { id: 'settings', label: 'Настройки', icon: <SettingsIcon size={17} /> }
   ]

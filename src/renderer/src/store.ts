@@ -26,7 +26,7 @@ export interface UiPost {
   mediaIds: string[]
 }
 
-export type TabId = 'compose' | 'queue' | 'pulse' | 'settings'
+export type TabId = 'compose' | 'queue' | 'history' | 'pulse' | 'settings'
 
 interface Composer {
   mode: 'broadcast' | 'languages'
@@ -82,6 +82,11 @@ interface Store {
   setPreview: (on: boolean) => void
   setSchedule: (at: number | null) => void
   resetComposer: () => void
+  loadDraft: (draft: Draft, message?: string) => void
+  loadRecord: (record: PostRecord) => void
+  saveDraftAs: () => Promise<void>
+  deleteDraft: (id: string) => Promise<void>
+  setMediaAlt: (mediaId: string, alt: string) => Promise<void>
 
   publish: () => Promise<void>
   saveDraft: () => Promise<void>
@@ -283,6 +288,90 @@ export const useStore = create<Store>((set, get) => ({
   setSchedule: (at) => set((prev) => ({ composer: { ...prev.composer, scheduleAt: at } })),
 
   resetComposer: () => set({ composer: emptyComposer() }),
+
+  loadDraft: (draft, message = 'Черновик загружен') => {
+    const threads: Record<string, UiPost[]> = {}
+    for (const variant of draft.variants ?? []) {
+      threads[variant.lang] = (variant.thread ?? []).map((post) => ({
+        id: post.id || uid(),
+        text: post.text ?? '',
+        mediaIds: post.mediaIds ?? []
+      }))
+    }
+    if (!Object.keys(threads).length) threads['*'] = [newPost()]
+    const mode = draft.mode ?? (threads['*'] ? 'broadcast' : 'languages')
+    const activeKey = mode === 'broadcast' ? '*' : Object.keys(threads)[0]
+    set((prev) => {
+      const data = prev.data
+      const known = new Set(data?.media.map((m) => m.id) ?? [])
+      const extra = (draft.media ?? []).filter((m) => !known.has(m.id))
+      const ids = data ? draft.accountIds?.filter((id) => data.accounts.some((a) => a.id === id)) ?? [] : []
+      return {
+        composer: {
+          mode,
+          threads,
+          activeKey,
+          preview: false,
+          scheduleAt: null
+        },
+        selected: ids.length ? ids : prev.selected,
+        data: data && extra.length ? { ...data, media: [...extra, ...data.media] } : data
+      }
+    })
+    get().toast(message)
+  },
+
+  loadRecord: (record) => {
+    const draft: Draft = {
+      id: `repost_${record.id}_${Date.now()}`,
+      mode: 'languages',
+      text: Object.values(record.variants)[0]?.map((p) => p.text).join('\n\n') ?? '',
+      variants: Object.entries(record.variants).map(([lang, thread]) => ({ lang, thread })),
+      accountIds: record.accountIds,
+      media: record.media,
+      updatedAt: Date.now()
+    }
+    get().loadDraft(draft, 'Пост загружен в композер')
+    set({ tab: 'compose' })
+    void window.gridpost.updateSettings({ activeTab: 'compose' })
+  },
+
+  saveDraftAs: async () => {
+    const { composer, data } = get()
+    if (!data) return
+    const draft: Draft = {
+      id: `draft_${Date.now()}`,
+      mode: composer.mode,
+      text: (composer.threads['*'] ?? []).map((p) => p.text).join('\n\n'),
+      variants: Object.entries(composer.threads).map(([lang, thread]) => ({
+        lang,
+        thread: thread.map((p) => ({ id: p.id, text: p.text, mediaIds: p.mediaIds }))
+      })),
+      accountIds: get().selected,
+      media: data.media,
+      updatedAt: Date.now()
+    }
+    await window.gridpost.saveDraft(draft)
+    get().toast('Черновик сохранён')
+  },
+
+  deleteDraft: async (id) => {
+    await window.gridpost.removeDraft(id)
+    get().toast('Черновик удалён')
+  },
+
+  setMediaAlt: async (mediaId, alt) => {
+    await window.gridpost.updateMedia(mediaId, { alt })
+    set((prev) => {
+      if (!prev.data) return {}
+      return {
+        data: {
+          ...prev.data,
+          media: prev.data.media.map((m) => (m.id === mediaId ? { ...m, alt } : m))
+        }
+      }
+    })
+  },
 
   publish: async () => {
     const { composer, data, selected } = get()

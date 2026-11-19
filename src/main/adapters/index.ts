@@ -8,6 +8,7 @@ import x from './x'
 import bluesky from './bluesky'
 import mastodon from './mastodon'
 import facebook from './facebook'
+import linkedin from './linkedin'
 
 const nativeImport = new Function('specifier', 'return import(specifier)') as (s: string) => Promise<any>
 
@@ -39,7 +40,7 @@ export class AdapterRegistry {
   plugins: PluginInfo[] = []
 
   constructor() {
-    for (const adapter of [x, telegram, facebook, bluesky, mastodon]) {
+    for (const adapter of [x, telegram, facebook, bluesky, mastodon, linkedin]) {
       this.core.set(adapter.id, adapter)
       this.loaded.set(adapter.id, adapter)
     }

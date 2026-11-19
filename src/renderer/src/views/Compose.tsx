@@ -2,17 +2,22 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Clock,
   Eye,
+  FolderOpen,
   Image as ImageIcon,
   Loader2,
   Plus,
+  Save,
   Send,
   Sparkles,
   Trash2,
+  Type,
   X
 } from 'lucide-react'
 import type { MediaItem } from '@shared/types'
 import { strictestLimit, useStore } from '../store'
 import PreviewCards from '../components/PreviewCards'
+import AltEditor from '../components/AltEditor'
+import DraftsDialog from '../components/DraftsDialog'
 
 function toLocalInput(ts: number): string {
   const d = new Date(ts)
@@ -38,12 +43,15 @@ export default function Compose(): JSX.Element {
   const setSchedule = useStore((s) => s.setSchedule)
   const publish = useStore((s) => s.publish)
   const publishing = useStore((s) => s.publishing)
+  const saveDraftAs = useStore((s) => s.saveDraftAs)
   const toast = useStore((s) => s.toast)
 
   const [translating, setTranslating] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [focusPost, setFocusPost] = useState<string | null>(null)
+  const [draftsOpen, setDraftsOpen] = useState(false)
+  const [altTarget, setAltTarget] = useState<{ mediaIds: string[] } | null>(null)
   const dragDepth = useRef(0)
 
   const accounts = data?.accounts ?? []
@@ -153,6 +161,12 @@ export default function Compose(): JSX.Element {
           </button>
         </div>
         <span className="spacer" />
+        <button className="mini-btn" onClick={() => setDraftsOpen(true)} title="Черновики">
+          <FolderOpen size={11} />
+        </button>
+        <button className="mini-btn" onClick={() => void saveDraftAs()} title="Сохранить черновик">
+          <Save size={11} />
+        </button>
         <button className="mini-btn" onClick={() => void translateAll()} disabled={translating}>
           {translating ? <Loader2 size={11} className="spin" /> : <Sparkles size={11} />}
           Перевести
@@ -224,6 +238,15 @@ export default function Compose(): JSX.Element {
                 >
                   <ImageIcon size={11} />
                 </button>
+                {post.mediaIds.length > 0 && (
+                  <button
+                    className="mini-btn"
+                    onClick={() => setAltTarget({ mediaIds: post.mediaIds })}
+                    title="Alt-текст для медиа"
+                  >
+                    <Type size={11} /> alt
+                  </button>
+                )}
                 {posts.length > 1 && (
                   <button className="mini-btn" onClick={() => removePost(activeKey, post.id)} title="Удалить пост">
                     <Trash2 size={11} />
@@ -303,6 +326,9 @@ export default function Compose(): JSX.Element {
           </div>
         </div>
       )}
+
+      {draftsOpen && <DraftsDialog onClose={() => setDraftsOpen(false)} />}
+      {altTarget && <AltEditor mediaIds={altTarget.mediaIds} onClose={() => setAltTarget(null)} />}
     </div>
   )
 }

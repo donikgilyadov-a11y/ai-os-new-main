@@ -9,7 +9,7 @@ export default function Toasts(): JSX.Element {
         <div
           key={t.id}
           className="toast"
-          style={{ bottom: 112 + index * 40, borderColor: t.kind === 'error' ? 'rgba(224,108,117,.5)' : undefined }}
+          style={{ top: 54 + index * 40, borderColor: t.kind === 'error' ? 'rgba(224,108,117,.5)' : undefined }}
           onClick={() => dismiss(t.id)}
         >
           {t.text}

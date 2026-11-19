@@ -18,6 +18,7 @@ const api = {
   importMedia: (paths: string[]) => invoke('media:import', paths),
   pickMedia: () => invoke('media:pick'),
   removeMedia: (id: string) => invoke('media:remove', id),
+  updateMedia: (id: string, patch: Record<string, unknown>) => invoke('media:update', id, patch),
   pathForFile: (file: File) => webUtils.getPathForFile(file),
 
   saveDraft: (draft: unknown) => invoke('draft:save', draft),
@@ -41,6 +42,8 @@ const api = {
   removeGroup: (id: string) => invoke('groups:remove', id),
   saveAlias: (alias: unknown) => invoke('aliases:save', alias),
   removeAlias: (id: string) => invoke('aliases:remove', id),
+  exportPresets: () => invoke('presets:export'),
+  importPresets: () => invoke('presets:import'),
 
   fetchStats: (recordId: string, accountId: string) => invoke('stats:fetch', recordId, accountId),
 

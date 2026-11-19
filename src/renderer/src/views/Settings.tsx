@@ -407,11 +407,30 @@ function PluginsSection(): JSX.Element {
 function DataSection(): JSX.Element {
   const encrypted = useStore((s) => s.encrypted)
   const logs = useStore((s) => s.logs)
+  const toast = useStore((s) => s.toast)
   const [info, setInfo] = useState<{ storePath: string; userData: string } | null>(null)
 
   useEffect(() => {
     void window.gridpost.appInfo().then((i) => setInfo(i as { storePath: string; userData: string }))
   }, [])
+
+  const exportPresets = async (): Promise<void> => {
+    try {
+      const path = (await window.gridpost.exportPresets()) as string | null
+      if (path) toast('Пресеты экспортированы')
+    } catch (error) {
+      toast((error as Error).message, 'error')
+    }
+  }
+
+  const importPresets = async (): Promise<void> => {
+    try {
+      const result = (await window.gridpost.importPresets()) as { aliases: number; groups: number } | null
+      if (result) toast(`Импортировано: ${result.aliases} алиасов, ${result.groups} пресетов`)
+    } catch (error) {
+      toast((error as Error).message, 'error')
+    }
+  }
 
   return (
     <div className="card-block">
@@ -424,6 +443,17 @@ function DataSection(): JSX.Element {
       </div>
       <div className="mono dim" style={{ fontSize: 9, marginTop: 6, wordBreak: 'break-all' }}>
         {info?.storePath}
+      </div>
+      <div className="row" style={{ marginTop: 8 }}>
+        <button className="mini-btn" onClick={() => void exportPresets()}>
+          экспорт пресетов
+        </button>
+        <button className="mini-btn" onClick={() => void importPresets()}>
+          импорт пресетов
+        </button>
+      </div>
+      <div className="hint" style={{ marginTop: 6 }}>
+        Экспорт содержит алиасы, пресеты, профили (без токенов) и настройки — удобно переносить между устройствами.
       </div>
       {logs.length > 0 && (
         <>
