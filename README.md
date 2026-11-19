@@ -55,10 +55,19 @@ npm install
 npm run dev          # разработка (Vite + Electron)
 npm run typecheck    # проверка типов main/preload и renderer
 npm run build        # сборка в out/
+npm run smoke        # e2e-смоук: сборка + сценарий в Electron (playwright-core)
 npm run dist         # NSIS-установщик для Windows
 ```
 
-Требуется Node.js 20+.
+Требуется Node.js 20+. Для запуска с отдельным профилем (портативный режим, тесты):
+`GRIDPOST_DATA_DIR=C:\path\to\profile npm run start`.
+
+Смоук-тест создаёт временный профиль, проходит мастер аккаунта, ветку постов, превью, проверяет шифрование и
+сохранность данных после перезапуска; скриншоты складываются в `%TEMP%/gridpost-shots`.
+
+> Сборка установщика на Windows требует распаковки `winCodeSign` (архив с симлинками). Если `npm run dist`
+> падает с `Cannot create symbolic link`, включите «Режим разработчика» в Windows или запустите сборку от
+> администратора, либо соберите без встраивания иконки: `npx electron-builder --win -c.win.signAndEditExecutable=false`.
 
 ## Быстрый старт
 
