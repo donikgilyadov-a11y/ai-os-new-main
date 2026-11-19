@@ -20,9 +20,10 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
-      # Windows runners may lack symlink privileges for the winCodeSign cache.
+      # signAndEditExecutable: false is set in package.json — avoids extracting
+      # winCodeSign (its archive contains symlinks unavailable on hosted runners).
       - name: Build installer
-        run: npx electron-builder --win --publish never -c.win.signAndEditExecutable=false
+        run: node node_modules/electron-builder/cli.js --win --publish never
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:

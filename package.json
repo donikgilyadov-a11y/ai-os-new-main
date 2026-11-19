@@ -66,6 +66,7 @@
         "nsis"
       ],
       "icon": "resources/icon.png",
+      "signAndEditExecutable": false,
       "artifactName": "Gridpost-${version}-setup.${ext}"
     },
     "nsis": {
