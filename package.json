@@ -1,6 +1,6 @@
 {
   "name": "gridpost",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Gridpost — local-first lightweight desktop client for running a multi-language social grid",
   "main": "./out/main/index.js",
   "author": "Gridpost contributors",
