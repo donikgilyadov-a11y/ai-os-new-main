@@ -90,7 +90,7 @@ export class AdapterRegistry {
       }
       try {
         if (!existsSync(manifestPath)) throw new Error('manifest.json не найден')
-        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, any>
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8').replace(/^\uFEFF/, '')) as Record<string, any>
         info.id = manifest.id ?? info.id
         info.name = manifest.name ?? info.name
         info.version = manifest.version ?? '0.0.0'

@@ -1,0 +1,9 @@
+{
+  "id": "instagram",
+  "name": "Instagram",
+  "version": "1.0.0",
+  "description": "Instagram Graph API: текстовые посты, фото и карусели через публично доступные URL.",
+  "platform": "instagram",
+  "main": "adapter.mjs",
+  "color": "#e1306c"
+}

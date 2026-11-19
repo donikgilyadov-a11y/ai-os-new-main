@@ -28,6 +28,11 @@ my-network/
 ```
 
 `id` обязан быть уникальным и используется как `account.platform`. `main` — ESM-файл (`.mjs`).
+Файл `manifest.json` может быть в UTF-8 с BOM — загрузчик его корректно обрабатывает.
+
+В поставке два плагина: `plugins/instagram` (Content Publishing API, текст/фото/карусели) и `plugins/webhook`
+(отправка в HTTP webhook). Instagram требует публично доступного URL для медиа — задайте `imageBaseUrl` в
+настройках аккаунта; текстовые посты работают без него.
 
 ## adapter.mjs
 

@@ -28,5 +28,7 @@ export const platformLabels: Record<string, string> = {
   facebook: 'Facebook',
   bluesky: 'Bluesky',
   mastodon: 'Mastodon',
-  linkedin: 'LinkedIn'
+  linkedin: 'LinkedIn',
+  instagram: 'Instagram',
+  webhook: 'Webhook'
 }

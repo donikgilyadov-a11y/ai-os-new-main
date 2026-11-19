@@ -41,6 +41,15 @@ async function run() {
   await shot(page, '01-empty.png')
   log('empty state rendered')
 
+  const platforms = await page.evaluate(() => window.gridpost.platforms())
+  const pluginInfo = await page.evaluate(() => window.gridpost.listPlugins())
+  if (process.env.DEBUG_PLUGINS) console.log(JSON.stringify(pluginInfo, null, 2))
+  for (const id of ['instagram', 'webhook']) {
+    if (!platforms.some((p) => p.id === id))
+      throw new Error(`plugin ${id} not loaded: ${platforms.map((p) => p.id).join(', ')}`)
+  }
+  log('plugins discovered', platforms.map((p) => p.id).join(', '))
+
   await page.getByRole('button', { name: 'Добавить аккаунт' }).click()
   await page.waitForSelector('.modal')
   await page.locator('.platform-tile', { hasText: 'Telegram' }).click()

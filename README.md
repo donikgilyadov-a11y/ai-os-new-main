@@ -43,6 +43,7 @@
 | Mastodon | ✅ host + access token | захват сессии | ✅ до 4 | ✅ | ✅ `scheduled_at` |
 | Facebook Pages | ✅ Page ID + Page token | захват сессии | ✅ 1 фото / до 10 через `attached_media` | — | ✅ `scheduled_publish_time` |
 | LinkedIn | ✅ OAuth2 token (`w_member_social`) | захват сессии | ✅ до 9 изображений + alt-текст | — | — |
+| Instagram (плагин) | ✅ Graph API: текст, фото, карусели | захват сессии | ✅ по публичному URL (`imageBaseUrl`) | — | — |
 | Webhook / Discord | ✅ (плагин-пример) | — | — | — | — |
 
 WebView-режим хранит cookies аккаунта в его изолированном профиле. Для X реализована публикация через web-сессию
@@ -127,13 +128,15 @@ plugins/         примеры плагинов (webhook)
 
 ## Плагины
 
-Контракт и пример — [docs/PLUGINS.md](docs/PLUGINS.md). Пример: `plugins/webhook`.
+Контракт и пример — [docs/PLUGINS.md](docs/PLUGINS.md). Плагины в поставке: `plugins/instagram` (Graph API) и
+`plugins/webhook` (HTTP-хуки, Discord/Slack).
 
 ## Ограничения MVP
 
 - Нативное расписание площадок, которые его не поддерживают (X, Telegram, Bluesky), выполняет локальный планировщик:
   если ПК выключен, при следующем запуске появится диалог «опубликовать сейчас / перенести / в черновики».
-- Instagram, Threads, Reddit, TenChat не входят в ядро — добавляются плагинами.
+- Threads, Reddit, TenChat не входят в ядро — добавляются плагинами. Instagram поставляется как bundled-плагин
+  (`plugins/instagram`); локальные фото требуют публичной папки-зеркала, поскольку Graph API принимает только URL.
 - Прокси применяется к сессии аккаунта (API-запросы и WebView), а не к самому окну приложения.
 
 ## Релизы
