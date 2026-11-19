@@ -99,6 +99,23 @@ export class Publisher {
     return record
   }
 
+  /**
+   * Platforms that own their schedule (Mastodon, Facebook) must be handed the
+   * future timestamp immediately, otherwise the local scheduler would pass an
+   * already-elapsed time to their API. Other accounts stay `pending` for tick().
+   */
+  async publishNative(record: PostRecord): Promise<PostRecord> {
+    if (!record.scheduledAt || record.scheduledAt <= Date.now()) return record
+    const state = this.getState()
+    const native = record.results.filter((result) => {
+      if (result.status !== 'pending') return false
+      const account = state.accounts.find((a) => a.id === result.accountId)
+      return Boolean(account && registry.get(account.platform)?.capabilities.nativeScheduling)
+    })
+    if (native.length) await this.publishRecord(record, native)
+    return record
+  }
+
   async retryFailed(recordId: string): Promise<PostRecord | undefined> {
     const record = this.getState().records.find((r) => r.id === recordId)
     if (!record) return undefined
@@ -109,9 +126,9 @@ export class Publisher {
   }
 
   /** Publish only results that are still pending. */
-  private async publishRecord(record: PostRecord): Promise<void> {
+  private async publishRecord(record: PostRecord, only?: PostResult[]): Promise<void> {
     const state = this.getState()
-    const queue = record.results.filter((r) => r.status === 'pending')
+    const queue = (only ?? record.results).filter((r) => r.status === 'pending')
     if (!queue.length) return
 
     const touchedPlatforms = new Map<string, number>()

@@ -237,7 +237,11 @@ export function registerIpc(deps: Deps): void {
         scheduledAt: payload.scheduledAt
       })
       log(`record ${record.id} created for ${payload.accountIds.length} accounts`)
-      if (!payload.scheduledAt) {
+      if (payload.scheduledAt) {
+        const native = await deps.publisher.publishNative(record)
+        const nativeCount = native.results.filter((r) => r.native).length
+        if (nativeCount) log(`${nativeCount} results scheduled natively by their platforms`)
+      } else {
         void deps.publisher.publishNow(record).then(() => {
           const errors = record.results.filter((r) => r.status === 'error')
           if (errors.length) {
