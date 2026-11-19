@@ -1,7 +1,8 @@
 import type { Adapter, AdapterContext, MediaAsset, PublishInput, PublishOutcome } from '@shared/types'
 import { readJsonResponse } from '../util'
 
-const API = 'https://api.telegram.org'
+// Test seam: the e2e smoke suite points this at a local mock Bot API server.
+const API = process.env.GRIDPOST_TELEGRAM_API ?? 'https://api.telegram.org'
 
 function esc(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

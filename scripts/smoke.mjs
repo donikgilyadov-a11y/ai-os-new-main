@@ -9,6 +9,7 @@ import { _electron as electron } from 'playwright-core'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createServer } from 'node:http'
 
 const dataDir = mkdtempSync(join(tmpdir(), 'gridpost-smoke-'))
 const shotDir = process.env.SHOT_DIR ?? join(tmpdir(), 'gridpost-shots')
@@ -16,10 +17,35 @@ mkdirSync(shotDir, { recursive: true })
 
 const log = (step, extra = '') => console.log(`✓ ${step}${extra ? ` — ${extra}` : ''}`)
 
+// Local Telegram Bot API stand-in so the real adapter + publisher can be exercised.
+const mockRequests = []
+const mockServer = createServer((req, res) => {
+  let body = ''
+  req.on('data', (chunk) => (body += chunk))
+  req.on('end', () => {
+    mockRequests.push({ url: req.url ?? '', body })
+    const isMe = req.url?.includes('/getMe')
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(
+      JSON.stringify({
+        ok: true,
+        result: isMe
+          ? { id: 1, is_bot: true, username: 'gridpost_test_bot', first_name: 'Test' }
+          : { message_id: 1000 + mockRequests.length }
+      })
+    )
+  })
+})
+await new Promise((resolve, reject) => {
+  mockServer.once('error', reject)
+  mockServer.listen(0, '127.0.0.1', resolve)
+})
+const mockApi = `http://127.0.0.1:${mockServer.address().port}`
+
 async function launch() {
   const app = await electron.launch({
     args: ['.'],
-    env: { ...process.env, GRIDPOST_DATA_DIR: dataDir },
+    env: { ...process.env, GRIDPOST_DATA_DIR: dataDir, GRIDPOST_TELEGRAM_API: mockApi },
     timeout: 60000
   })
   const page = await app.firstWindow()
@@ -80,6 +106,31 @@ async function run() {
   const counter = await page.locator('.counter').first().textContent()
   if (!counter?.includes('/4096')) throw new Error(`unexpected counter: ${counter}`)
   log('composer + thread + preview', `counter ${counter}`)
+
+  await page.getByRole('button', { name: 'Опубликовать' }).click()
+  let published = null
+  let results = []
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const snapshot = await page.evaluate(async () => {
+      const state = await window.gridpost.getState()
+      return state.records.flatMap((record) => record.results)
+    })
+    results = snapshot
+    published = snapshot.find((result) => result.status === 'sent') ?? null
+    if (published || snapshot.some((result) => result.status === 'error')) break
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  if (!published)
+    throw new Error(`publish did not succeed: ${JSON.stringify(results.map((r) => ({ status: r.status, error: r.error })))}`)
+  const sends = mockRequests.filter((request) => request.url.includes('/sendMessage'))
+  if (sends.length < 2)
+    throw new Error(
+      `expected 2 Telegram messages, got ${sends.length}; urls=${JSON.stringify(mockRequests.map((r) => r.url))}`
+    )
+  if (!sends[0].body.includes('тестовый пост')) throw new Error('first message text was not delivered')
+  if (!sends[1].body.includes('Второй пост ветки')) throw new Error('second thread post was not delivered')
+  if (!published.url?.includes('t.me/gridpost_demo/')) throw new Error('missing Telegram post URL')
+  log('real publish via Telegram adapter', `${sends.length} messages, ${published.url}`)
 
   await page.getByTitle('Сохранить черновик').click()
   await page.waitForTimeout(300)
@@ -142,6 +193,7 @@ async function run() {
   log('store file present', files.filter((f) => f.startsWith('gridpost')).join(', '))
 
   await app.evaluate(({ app: electronApp }) => electronApp.quit())
+  mockServer.close()
   console.log(`\nScreenshots: ${shotDir}`)
   if (!process.env.KEEP_DATA) {
     try {
@@ -153,6 +205,7 @@ async function run() {
 }
 
 run().catch(async (error) => {
+  mockServer.close()
   console.error('SMOKE FAILED:', error.message)
   if (process.env.SCREENSHOT_ON_FAIL) console.error('data dir:', dataDir)
   process.exit(1)
