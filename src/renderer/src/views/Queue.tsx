@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Clock, ExternalLink, Loader2, RotateCw, Trash2, Zap } from 'lucide-react'
+import { CheckCircle2, Clock3, ExternalLink, Loader2, RotateCw, Trash2, XCircle, Zap } from 'lucide-react'
 import type { PostResult } from '@shared/types'
 import { useStore } from '../store'
 import { statusColor } from '../components/PreviewCards'
@@ -36,7 +36,7 @@ export default function Queue(): JSX.Element {
     return (
       <div className="scroll">
         <div className="empty">
-          <Clock size={28} />
+          <Clock3 size={28} />
           <div>Очередь пуста</div>
           <div className="dim">Опубликуйте первый пост или запланируйте его на потом</div>
         </div>
@@ -54,7 +54,7 @@ export default function Queue(): JSX.Element {
         return (
           <div className="record" key={record.id}>
             <div className="record-head">
-              {record.scheduledAt ? <Clock size={11} /> : <Zap size={11} />}
+              {record.scheduledAt ? <Clock3 size={11} /> : <Zap size={11} />}
               <span className="mono">
                 {record.scheduledAt
                   ? new Date(record.scheduledAt).toLocaleString('ru-RU', {
@@ -97,12 +97,23 @@ export default function Queue(): JSX.Element {
             {preview && <div className="record-text">{preview}</div>}
             {record.results.map((result) => {
               const account = accounts.get(result.accountId)
+              const StatusIcon =
+                result.status === 'sending'
+                  ? Loader2
+                  : result.status === 'sent'
+                    ? CheckCircle2
+                    : result.status === 'error'
+                      ? XCircle
+                      : Clock3
               return (
-                <div className="result-row" key={result.accountId}>
-                  <span className="status-dot" style={{ background: statusColor(result.status) }} />
+                <div className={`result-row ${result.status}`} key={result.accountId}>
+                  <StatusIcon
+                    size={12}
+                    className={result.status === 'sending' ? 'spin' : ''}
+                    style={{ color: statusColor(result.status) }}
+                  />
                   <span className="pill">{result.lang}</span>
                   <span className="result-name">{account?.name ?? 'удалённый аккаунт'}</span>
-                  {result.status === 'sending' && <Loader2 size={10} className="spin" />}
                   {result.error ? (
                     <span className="result-error" title={result.error}>
                       {result.error}
@@ -121,6 +132,7 @@ export default function Queue(): JSX.Element {
                       <ExternalLink size={10} />
                     </button>
                   )}
+                  {result.status === 'sending' && <span className="send-progress" />}
                 </div>
               )
             })}

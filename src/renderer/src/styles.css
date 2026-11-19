@@ -801,6 +801,35 @@ textarea {
 }
 
 /* ── queue / pulse ────────────────────────────────────── */
+.result-row.sending {
+  position: relative;
+}
+
+.send-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  animation: send-progress 1.1s ease-in-out infinite;
+}
+
+@keyframes send-progress {
+  0% {
+    width: 4%;
+    opacity: 0.35;
+  }
+  55% {
+    width: 72%;
+    opacity: 1;
+  }
+  100% {
+    width: 100%;
+    opacity: 0;
+  }
+}
+
 .section-title {
   display: flex;
   align-items: center;
